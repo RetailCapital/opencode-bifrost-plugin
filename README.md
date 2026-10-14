@@ -39,7 +39,7 @@ Then add the package to `opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@retailcapital/bifrost-opencode-plugin@0.1.0"]
+  "plugin": ["@retailcapital/bifrost-opencode-plugin@0.1.1"]
 }
 ```
 
@@ -51,21 +51,22 @@ npm publish
 
 No publishing automation is installed by this repository.
 
-## Private Git Installation
+## Local Private Checkout
 
-Where the OpenCode package resolver has GitHub SSH access, the repository can
-also be referenced as an npm Git specification:
+For development before publishing the package, clone the private repository
+and reference its entry point directly:
 
 ```json
 {
   "plugin": [
-    "git+ssh://git@github.com/RetailCapital/bifrost-opencode-plugin.git#v0.1.0"
+    "file:///home/your-user/workspace/bifrost-opencode-plugin/src/index.js"
   ]
 }
 ```
 
-Use tagged versions rather than `main` so a plugin update cannot unexpectedly
-break every developer's OpenCode startup.
+OpenCode 1.19 does not load this plugin from a `git+ssh` npm specification.
+Use the GitHub Package for team distribution and the file URL only for local
+plugin development.
 
 ## Explicit Overrides
 
@@ -104,7 +105,7 @@ OpenCode supports package options using tuple syntax:
 {
   "plugin": [
     [
-      "@retailcapital/bifrost-opencode-plugin@0.1.0",
+      "@retailcapital/bifrost-opencode-plugin@0.1.1",
       {
         "timeoutMs": 10000,
         "providerId": "bifrost",
