@@ -13,8 +13,39 @@ At OpenCode startup, the plugin:
 
 ## Prerequisites
 
-Users must export the Bifrost base URL and virtual key. Secrets are read at
-runtime and are never stored by the plugin.
+The plugin needs the Bifrost base URL and virtual key in the environment.
+Secrets are read at runtime; the plugin itself never writes them anywhere.
+
+### Guided setup (recommended)
+
+Run the interactive setup once. It prompts only for values that are not
+already set in the environment (the key is typed without echo) and saves them
+to `~/.bashrc` so every new shell has them. If both variables are already set,
+it exits without prompting or touching any file:
+
+```bash
+npx --package @retailcapital/bifrost-opencode-plugin bifrost-opencode-setup
+# or, from a local checkout:
+npm run setup
+```
+
+The values are written inside a managed block delimited by
+`# >>> bifrost-opencode-plugin >>>` and `# <<< bifrost-opencode-plugin <<<`.
+Re-running setup replaces that block in place, offers any saved values as
+defaults, and leaves the rest of `~/.bashrc` untouched. If `~/.bashrc` already
+exports these variables elsewhere, setup warns you, because later lines win.
+Bash login shells (SSH sessions, macOS Terminal, some Linux terminals) do not
+read `~/.bashrc`. They read only the first of `~/.bash_profile`,
+`~/.bash_login` and `~/.profile` that exists. After saving, setup checks that
+file and warns, with the fix, when it does not source `~/.bashrc`:
+
+```bash
+[ -f ~/.bashrc ] && . ~/.bashrc
+```
+The file is created with mode `0600` when it does not exist. Open a new shell
+(or `source ~/.bashrc`) afterwards.
+
+### Manual setup
 
 ```bash
 export BIFROST_URL="http://bifrost.private.example"

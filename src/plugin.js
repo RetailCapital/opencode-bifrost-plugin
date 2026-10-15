@@ -33,7 +33,7 @@ export function createBifrostPlugin({
         const baseUrl = env.BIFROST_URL?.trim()
         const apiKey = env.BIFROST_API_KEY?.trim()
         if (!baseUrl || !apiKey) {
-          await warnOnce("Setup skipped because required Bifrost environment variables are not set")
+          await warnOnce("Setup skipped because the Bifrost environment variables are not set. Run `npx --package @retailcapital/bifrost-opencode-plugin bifrost-opencode-setup` (or `npm run setup` in a local checkout) to save them to ~/.bashrc, then start a new shell")
           return
         }
 

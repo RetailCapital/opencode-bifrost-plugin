@@ -4,12 +4,16 @@
   "description": "OpenCode integration for Retail Capital's private Bifrost gateway",
   "type": "module",
   "exports": "./src/index.js",
+  "bin": {
+    "bifrost-opencode-setup": "./src/setup-cli.js"
+  },
   "files": [
     "src",
     "README.md"
   ],
   "scripts": {
-    "check": "node --check src/discovery.js && node --check src/plugin.js && node --check src/index.js",
+    "setup": "node src/setup-cli.js",
+    "check": "node --check src/discovery.js && node --check src/plugin.js && node --check src/index.js && node --check src/setup.js && node --check src/setup-cli.js",
     "test": "node --test"
   },
   "repository": {
