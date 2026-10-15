@@ -7,7 +7,9 @@ At OpenCode startup, the plugin:
 - confirms that `BIFROST_URL` is reachable and really is a Bifrost gateway, and
   skips all setup when it is not;
 - discovers non-deprecated agentic models from `GET /v1/models`;
-- injects the Bifrost provider when it is not already configured;
+- injects the Bifrost provider when it is not already configured, including
+  each model's context limits and per-token pricing so OpenCode can show the
+  cost of each request and of the session (see [Cost tracking](#cost-tracking));
 - injects the Memento MCP server at `/mcp`;
 - preserves explicit provider, model, MCP, and `enabled: false` overrides; and
 - logs one warning and leaves the existing configuration unchanged when setup fails.
@@ -162,6 +164,40 @@ timeouts, display names, or models that Bifrost does not advertise.
   }
 }
 ```
+
+## Cost tracking
+
+Bifrost's `GET /v1/models` returns a `pricing` object in USD per token, as
+decimal strings. The plugin converts it to the `cost` block OpenCode uses
+(USD per million tokens):
+
+| Bifrost `pricing` | OpenCode `cost` |
+| --- | --- |
+| `prompt` | `input` |
+| `completion` | `output` |
+| `input_cache_read` | `cache_read` |
+| `input_cache_write` | `cache_write` |
+
+OpenCode multiplies these rates by the token counts the provider reports, so
+the per-message and session totals match Bifrost's list prices. Reasoning
+tokens are billed at the `output` rate.
+
+Limits:
+
+- Models with no usable `prompt` and `completion` price (for example the
+  `dev.meta.ai/muse-spark-*` models) get no `cost`, and OpenCode shows $0 for
+  them. A partial cost is never injected.
+- `web_search` and `image` fees are per call, not per token, and OpenCode has
+  no field for them, so they are not included.
+- The figures are Bifrost's catalog prices at startup. Discounts, negotiated
+  rates or later price changes are not reflected, and the plugin does not read
+  Bifrost's own spend logs.
+- An explicit entry for a model in `opencode.json` replaces the whole
+  discovered entry (name, limits and cost), not just the keys you set. If you
+  override a model, such as to set `reasoning` or a native provider adapter,
+  repeat its `cost` or the model shows $0.
+- The nested `cache: { read, write }` form is silently ignored by OpenCode 1.19.
+  Use the flat `cache_read` and `cache_write` keys when overriding.
 
 ## Options
 
