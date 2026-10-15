@@ -2,7 +2,14 @@
 import { createInterface } from "node:readline/promises"
 import { Writable } from "node:stream"
 
+import { readFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
+
+import { defaultConfigDir, pluginSpecFor } from "./opencode-config.js"
 import { runSetup } from "./setup.js"
+
+const entryPath = fileURLToPath(new URL("./index.js", import.meta.url))
+const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"))
 
 if (!process.stdin.isTTY) {
   console.error("Setup is interactive and needs a terminal.")
@@ -20,6 +27,7 @@ const rl = createInterface({ input: process.stdin, output, terminal: true })
 
 try {
   await runSetup({
+    opencode: { configDir: defaultConfigDir(), spec: pluginSpecFor(entryPath, manifest) },
     ask: (question) => rl.question(question),
     askSecret: async (question) => {
       process.stdout.write(question)

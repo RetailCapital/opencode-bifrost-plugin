@@ -19,10 +19,12 @@ Secrets are read at runtime; the plugin itself never writes them anywhere.
 
 ### Guided setup (recommended)
 
-Run the interactive setup once. It prompts only for values that are not
-already set in the environment (the key is typed without echo) and saves them
-to `~/.bashrc` so every new shell has them. If both variables are already set,
-it exits without prompting or touching any file:
+Run the interactive setup once. It does two things:
+
+1. Prompts only for values that are not already set in the environment (the
+   key is typed without echo) and saves them to `~/.bashrc` so every new shell
+   has them. If both are already set, it leaves `~/.bashrc` alone.
+2. Offers to register the plugin in your global OpenCode config (see below).
 
 ```bash
 npx --package @retailcapital/bifrost-opencode-plugin bifrost-opencode-setup
@@ -45,6 +47,26 @@ file and warns, with the fix, when it does not source `~/.bashrc`:
 ```
 The file is created with mode `0600` when it does not exist. Open a new shell
 (or `source ~/.bashrc`) afterwards.
+
+#### Registering the plugin with OpenCode
+
+After the environment step, setup asks `Add the plugin to <path>? [Y/n]`. The
+target is `opencode.jsonc` (preferred) or `opencode.json` in
+`$XDG_CONFIG_HOME/opencode` (default `~/.config/opencode`); a new
+`opencode.json` is created if neither exists. The entry it adds depends on how
+setup was run:
+
+- from `npx` or `node_modules`: `@retailcapital/bifrost-opencode-plugin@<version>`;
+- from a local checkout: a `file://` URL to that checkout's `src/index.js`.
+
+The file is edited in place as text, so comments, formatting and every other
+setting are preserved, and symlinks (dotfile managers) and file permissions are
+kept. The plugin is added only when it is not already registered under any
+form (package name with or without a version, or a `file://` path to any
+checkout of this package), so re-running is safe. If the file cannot be parsed
+or has a non-array `plugin`, setup leaves it untouched and prints the line to
+add by hand. Project-level `opencode.json` files are never modified. Restart
+OpenCode afterwards.
 
 ### Manual setup
 

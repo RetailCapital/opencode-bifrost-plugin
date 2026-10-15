@@ -2,6 +2,8 @@ import { readFile, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 
+import { registerPlugin } from "./opencode-config.js"
+
 export const BLOCK_START = "# >>> bifrost-opencode-plugin >>>"
 export const BLOCK_END = "# <<< bifrost-opencode-plugin <<<"
 
@@ -123,7 +125,37 @@ export async function findLoginShellIssue(homeDir) {
   )
 }
 
-export async function runSetup({
+/**
+ * Saves the Bifrost environment variables and, when `opencode` is given
+ * ({ configDir, spec }), registers the plugin in the global OpenCode config.
+ */
+export async function runSetup({ opencode, ...options }) {
+  const result = await setupEnvironment(options)
+  if (opencode) result.plugin = await setupPlugin({ ...opencode, ask: options.ask, out: options.out })
+  return result
+}
+
+async function setupPlugin({ configDir, spec, ask, out = (message) => console.log(message) }) {
+  const result = await registerPlugin({
+    configDir,
+    spec,
+    confirm: async (path) => {
+      const answer = (await ask(`Add the plugin to ${path}? [Y/n]: `)).trim().toLowerCase()
+      return answer === "" || answer === "y" || answer === "yes"
+    },
+  })
+
+  if (result.status === "present") out(`The plugin is already registered in ${result.path}.`)
+  else if (result.status === "added") out(`Added ${spec} to ${result.path}. Restart OpenCode to load it.`)
+  else if (result.status === "declined") out("Skipped registering the plugin with OpenCode.")
+  else {
+    out(`Could not edit ${result.path} (${result.reason}). Add this to its "plugin" array yourself:`)
+    out(`  ${JSON.stringify(spec)}`)
+  }
+  return result
+}
+
+async function setupEnvironment({
   ask,
   askSecret,
   out = (message) => console.log(message),
