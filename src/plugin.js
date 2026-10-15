@@ -9,7 +9,6 @@ const SERVICE = "bifrost-opencode-plugin"
 export function createBifrostPlugin({
   discover = discoverBifrostModels,
   env = process.env,
-  runIpRoute = defaultIpRoute,
 } = {}) {
   return async function bifrostPlugin({ client }, options = {}) {
     let warned = false
@@ -41,7 +40,6 @@ export function createBifrostPlugin({
           const discovered = await discover({
             baseUrl,
             apiKey,
-            runIpRoute,
             timeoutMs: positiveInteger(options.timeoutMs) || 8_000,
           })
           const providerId = stringOption(options.providerId, "bifrost")
@@ -107,15 +105,6 @@ export function mergeMemento(baseUrl, apiKey, configured = {}) {
     ...configured,
     headers: { ...defaults.headers, ...configured.headers },
   }
-}
-
-async function defaultIpRoute(address) {
-  const child = Bun.spawn(["ip", "route", "get", address], {
-    stdout: "pipe",
-    stderr: "pipe",
-  })
-  if ((await child.exited) !== 0) throw new Error("Unable to inspect the Bifrost route")
-  return new Response(child.stdout).text()
 }
 
 function positiveInteger(value) {

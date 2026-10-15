@@ -4,7 +4,8 @@ Private OpenCode integration for Retail Capital's Bifrost gateway.
 
 At OpenCode startup, the plugin:
 
-- verifies that Linux routes Bifrost through a VPN interface;
+- confirms that `BIFROST_URL` is reachable and really is a Bifrost gateway, and
+  skips all setup when it is not;
 - discovers non-deprecated agentic models from `GET /v1/models`;
 - injects the Bifrost provider when it is not already configured;
 - injects the Memento MCP server at `/mcp`;
@@ -52,9 +53,21 @@ export BIFROST_URL="http://bifrost.private.example"
 export BIFROST_API_KEY="<virtual-key>"
 ```
 
-On Linux, the Bifrost host must route through an interface whose name starts
-with `ppp`, `tun`, `tap`, `wg`, `tailscale`, `zt`, `vpn`, `globalprotect`, or
-`gp`. macOS and other platforms skip this Linux-specific route check.
+### Reachability check
+
+Before sending the key or changing any configuration, the plugin makes two
+unauthenticated requests (3 second timeout, redirects not followed):
+
+- `GET /health` must return Bifrost's status document
+  (`{"status":"ok","components":{...}}`); and
+- `GET /v1/models` without credentials must be refused with Bifrost's
+  `virtual_key_required` error.
+
+Both must match. An address that is unreachable, or where another service
+answers (captive portal, reused IP, open catalog), fails the check, and the
+plugin logs one warning and leaves the configuration unchanged. The API key is
+sent only after the check passes. There is no VPN or network-interface check,
+so this works the same on every platform.
 
 ## Private GitHub Package Installation
 

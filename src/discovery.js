@@ -1,13 +1,10 @@
-import { lookup } from "node:dns/promises"
-import { platform } from "node:os"
-
 const EXCLUDED_CAPABILITIES =
   /image|audio|tts|live|transcribe|embedding|robotics|lyria|veo|nano-banana|computer-use|aqa|deep-research|antigravity|omni|realtime|search|moderation|sora|whisper|instruct/i
 const OPENAI_AGENTIC_MODEL =
   /^openai\/(?:chat-latest|gpt-3\.5-turbo(?:$|-)|gpt-4(?:$|-|\.)|gpt-4o(?:$|-)|gpt-5(?:$|-|\.)|gpt-6(?:$|-|\.)|o1(?:$|-)|o3(?:$|-)|o4(?:$|-))/
 const FIREWORKS_AGENTIC_MODEL =
   /^accounts\/fireworks\/models\/(?:deepseek|glm|kimi|llama|mixtral|qwen)/i
-const VPN_INTERFACE = /^(?:ppp|tun|tap|wg|tailscale|zt|vpn|globalprotect|gp)/i
+const PROBE_TIMEOUT_MS = 3_000
 
 export function isAgenticModel(model) {
   if (!model || typeof model.id !== "string" || model.is_deprecated === true) return false
@@ -49,21 +46,46 @@ export function parseModelCatalog(payload) {
   )
 }
 
-export function parseRouteInterface(routeOutput) {
-  return routeOutput.match(/\bdev\s+(\S+)/)?.[1]
+export function bifrostRootUrl(baseUrl, path) {
+  const url = new URL(baseUrl)
+  url.pathname = `${url.pathname.replace(/\/(?:v1)?\/?$/, "")}${path}`.replace(/^\/\//, "/")
+  url.search = ""
+  url.hash = ""
+  return url.toString()
 }
 
-export async function hasBifrostVpnRoute(
-  hostname,
-  runIpRoute,
-  operatingSystem = platform(),
-  dnsLookup = lookup,
-) {
-  if (operatingSystem !== "linux") return true
+// Unauthenticated fingerprint of a real Bifrost gateway. No credentials are
+// sent, so a different service answering at the same address learns nothing.
+// Both checks must pass: /health reports Bifrost's status document, and the
+// model catalog refuses anonymous callers with Bifrost's virtual-key error.
+export async function probeBifrost(baseUrl, { fetchImpl = fetch, timeoutMs = PROBE_TIMEOUT_MS } = {}) {
+  const get = async (url) => {
+    try {
+      const response = await fetchImpl(url, {
+        redirect: "manual",
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      return { response, body: await response.json().catch(() => undefined) }
+    } catch {
+      throw new Error("Bifrost is not reachable")
+    }
+  }
 
-  const { address } = await dnsLookup(hostname)
-  const interfaceName = parseRouteInterface(await runIpRoute(address))
-  return Boolean(interfaceName && VPN_INTERFACE.test(interfaceName))
+  const health = await get(bifrostRootUrl(baseUrl, "/health"))
+  const healthy =
+    health.response.ok &&
+    health.body?.status === "ok" &&
+    typeof health.body.components === "object" &&
+    health.body.components !== null
+  const gated = await get(modelCatalogUrl(baseUrl))
+  const rejectsAnonymous =
+    gated.response.status === 401 &&
+    gated.body?.type === "virtual_key_required" &&
+    gated.body.is_bifrost_error === false
+
+  if (!healthy || !rejectsAnonymous) {
+    throw new Error("The configured address did not respond like Bifrost")
+  }
 }
 
 export function modelCatalogUrl(baseUrl) {
@@ -92,20 +114,17 @@ export async function discoverBifrostModels({
   baseUrl,
   apiKey,
   fetchImpl = fetch,
-  runIpRoute,
-  operatingSystem,
-  dnsLookup,
   timeoutMs = 8_000,
+  probeTimeoutMs = PROBE_TIMEOUT_MS,
 }) {
-  const url = new URL(baseUrl)
-  if (
-    !(await hasBifrostVpnRoute(url.hostname, runIpRoute, operatingSystem, dnsLookup))
-  ) {
-    throw new Error("Bifrost is not routed through an active VPN interface")
-  }
+  await probeBifrost(baseUrl, {
+    fetchImpl,
+    timeoutMs: Math.min(probeTimeoutMs, timeoutMs),
+  })
 
   const response = await fetchImpl(modelCatalogUrl(baseUrl), {
     headers: { Authorization: `Bearer ${apiKey}` },
+    redirect: "manual",
     signal: AbortSignal.timeout(timeoutMs),
   })
   if (!response.ok) {

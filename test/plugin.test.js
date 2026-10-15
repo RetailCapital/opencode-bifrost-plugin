@@ -93,7 +93,7 @@ test("does not mutate configuration when discovery fails", async () => {
       BIFROST_API_KEY: "test-key",
     },
     discover: async () => {
-      throw new Error("Bifrost is not routed through an active VPN interface")
+      throw new Error("Bifrost is not reachable")
     },
   })
   const hooks = await plugin({ client: clientWithLogs(logs) })
@@ -104,7 +104,7 @@ test("does not mutate configuration when discovery fails", async () => {
   assert.deepEqual(config, { provider: { existing: { name: "Existing" } } })
   assert.equal(logs.length, 1)
   assert.equal(logs[0].level, "warn")
-  assert.match(logs[0].message, /VPN interface/)
+  assert.match(logs[0].message, /not reachable/)
 })
 
 test("does not expose credentials in logs", async () => {
