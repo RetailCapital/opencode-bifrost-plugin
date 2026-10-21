@@ -7,6 +7,7 @@ import {
   isAgenticModel,
   modelCatalogUrl,
   parseModelCatalog,
+  toOpenCodeCost,
   discoverBifrostModels,
   probeBifrost,
 } from "../src/discovery.js"
@@ -50,6 +51,54 @@ test("builds OpenCode metadata for compatible models", () => {
       },
     },
   )
+})
+
+test("converts Bifrost per-token pricing to OpenCode per-million-token cost", () => {
+  assert.deepEqual(
+    toOpenCodeCost({
+      prompt: "0.0000030000",
+      completion: "0.0000150000",
+      web_search: "0.0100000000",
+      input_cache_read: "0.0000003000",
+      input_cache_write: "0.0000037500",
+    }),
+    { input: 3, output: 15, cache_read: 0.3, cache_write: 3.75 },
+  )
+  assert.deepEqual(
+    toOpenCodeCost({ prompt: "0.0000000500", completion: "0.0000004000", input_cache_read: "0.0000000050" }),
+    { input: 0.05, output: 0.4, cache_read: 0.005 },
+  )
+  assert.deepEqual(toOpenCodeCost({ prompt: "0", completion: "0" }), { input: 0, output: 0 })
+})
+
+test("omits cost when Bifrost pricing is missing or unusable", () => {
+  assert.equal(toOpenCodeCost(undefined), undefined)
+  assert.equal(toOpenCodeCost(null), undefined)
+  assert.equal(toOpenCodeCost({}), undefined)
+  assert.equal(toOpenCodeCost({ prompt: "0.000001" }), undefined)
+  assert.equal(toOpenCodeCost({ prompt: "0.000001", completion: "" }), undefined)
+  assert.equal(toOpenCodeCost({ prompt: "abc", completion: "0.000001" }), undefined)
+  assert.equal(toOpenCodeCost({ prompt: "-0.000001", completion: "0.000001" }), undefined)
+  // Unusable optional cache prices are dropped without discarding the model's cost.
+  assert.deepEqual(
+    toOpenCodeCost({ prompt: "0.000001", completion: "0.000002", input_cache_read: "n/a" }),
+    { input: 1, output: 2 },
+  )
+})
+
+test("includes cost in discovered model metadata", () => {
+  const models = parseModelCatalog({
+    data: [
+      {
+        id: "anthropic/claude-sonnet-5",
+        name: "Claude Sonnet 5",
+        pricing: { prompt: "0.0000020000", completion: "0.0000100000", input_cache_read: "0.0000002000" },
+      },
+      { id: "anthropic/claude-opus-5", name: "No pricing" },
+    ],
+  })
+  assert.deepEqual(models["anthropic/claude-sonnet-5"].cost, { input: 2, output: 10, cache_read: 0.2 })
+  assert.equal("cost" in models["anthropic/claude-opus-5"], false)
 })
 
 test("rejects malformed catalogs", () => {

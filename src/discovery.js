@@ -31,7 +31,41 @@ export function toOpenCodeModel(model) {
   const output = positiveNumber(model.max_output_tokens)
 
   if (context && output) discovered.limit = { context, output }
+
+  const cost = toOpenCodeCost(model.pricing)
+  if (cost) discovered.cost = cost
   return discovered
+}
+
+// Bifrost reports USD per token as decimal strings (e.g. "0.0000030000").
+// OpenCode wants USD per million tokens as numbers, and requires both input
+// and output, so models without a usable prompt/completion price get no cost
+// rather than a misleading partial one. Cache prices are optional.
+//
+// OpenCode 1.19 keeps the flat `cache_read`/`cache_write` keys but silently
+// drops the nested `cache: { read, write }` form, so the flat form is used.
+// Bifrost has no per-request fees or context tiers that OpenCode can model
+// (web_search, image), so those are intentionally not mapped.
+export function toOpenCodeCost(pricing) {
+  if (!pricing || typeof pricing !== "object") return undefined
+
+  const input = perMillionTokens(pricing.prompt)
+  const output = perMillionTokens(pricing.completion)
+  if (input === undefined || output === undefined) return undefined
+
+  const cost = { input, output }
+  const cacheRead = perMillionTokens(pricing.input_cache_read)
+  const cacheWrite = perMillionTokens(pricing.input_cache_write)
+  if (cacheRead !== undefined) cost.cache_read = cacheRead
+  if (cacheWrite !== undefined) cost.cache_write = cacheWrite
+  return cost
+}
+
+function perMillionTokens(value) {
+  const perToken = typeof value === "string" ? Number(value.trim() === "" ? NaN : value) : value
+  if (typeof perToken !== "number" || !Number.isFinite(perToken) || perToken < 0) return undefined
+  // toPrecision removes binary noise such as 3.0000000000000004.
+  return Number((perToken * 1_000_000).toPrecision(12))
 }
 
 export function parseModelCatalog(payload) {
