@@ -31,6 +31,36 @@ test("rejects deprecated and non-agentic models", () => {
   assert.equal(isAgenticModel({ id: "gemini/gemini-3.8-flash", supported_methods: [] }), false)
 })
 
+test("rejects models proven incompatible by the OpenCode tool-loop sweep", () => {
+  const incompatibleModels = [
+    "gemini/gemini-2.5-flash",
+    "gemini/gemini-2.5-flash-lite",
+    "gemini/gemini-2.5-pro",
+    "openai/gpt-3.5-turbo",
+    "openai/gpt-3.5-turbo-0125",
+    "openai/gpt-3.5-turbo-16k",
+    "openai/gpt-4",
+    "openai/gpt-4-0613",
+    "openai/gpt-5-pro",
+    "openai/gpt-5-pro-2025-10-06",
+    "openai/gpt-5.2-pro",
+    "openai/gpt-5.2-pro-2025-12-11",
+    "openai/gpt-5.3-codex",
+    "openai/gpt-5.4-pro",
+    "openai/gpt-5.4-pro-2026-03-05",
+    "openai/gpt-5.5-pro",
+    "openai/gpt-5.5-pro-2026-04-23",
+    "openai/o1-pro",
+    "openai/o1-pro-2025-03-19",
+    "openai/o3-pro",
+    "openai/o3-pro-2025-06-10",
+  ]
+
+  for (const id of incompatibleModels) {
+    assert.equal(isAgenticModel({ id, supported_methods: ["generateContent"] }), false, id)
+  }
+})
+
 test("builds OpenCode metadata for compatible models", () => {
   assert.deepEqual(
     parseModelCatalog({

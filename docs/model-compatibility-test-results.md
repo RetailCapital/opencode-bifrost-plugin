@@ -35,7 +35,7 @@ This is a basic compatibility test, not a quality benchmark. A pass proves that 
 
 ### Definite Discovery False Positives
 
-These 21 models are exposed by the current plugin but do not work correctly in the tested OpenCode configuration.
+These 21 models were exposed by the plugin version under test but do not work correctly in the tested OpenCode configuration. The accompanying discovery change excludes them by exact model ID.
 
 | Models | Failure |
 | --- | --- |
@@ -185,7 +185,7 @@ Its two OpenCode steps reported `$0.080022` and `$0.0087986`, which sum exactly 
 
 ## Excluded-Model Audit
 
-The plugin's 126 exclusions are not all empirically proven failures. The current filter is deliberately conservative because Bifrost does not expose a universal tool-calling capability flag.
+The plugin version under test had 126 exclusions, which were not all empirically proven failures. The filter is deliberately conservative because Bifrost does not expose a universal tool-calling capability flag.
 
 | Exclusion source | Count | Confidence |
 | --- | ---: | --- |
@@ -217,7 +217,7 @@ The broad name filter is still an assumption for models that expose `generateCon
 
 ## Recommended Discovery Changes
 
-1. Remove the 21 definite false positives listed above from dynamic discovery, or route Responses-only models through an appropriate native adapter before exposing them.
+1. Exclude the 21 definite false positives listed above from dynamic discovery, as implemented by the accompanying exact-ID denylist, or later route Responses-only models through an appropriate native adapter before exposing them again.
 2. Leave both quota-blocked Gemma models unresolved until they can be tested without a quota error.
 3. Retest Claude Opus 4.7 before changing its discovery status.
 4. Consider admitting Muse Wonder 1.0 after a broader coding/tool reliability check.

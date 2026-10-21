@@ -1,5 +1,28 @@
 const EXCLUDED_CAPABILITIES =
   /image|audio|tts|live|transcribe|embedding|robotics|lyria|veo|nano-banana|computer-use|aqa|deep-research|antigravity|omni|realtime|search|moderation|sora|whisper|instruct/i
+const KNOWN_INCOMPATIBLE_MODELS = new Set([
+  "gemini/gemini-2.5-flash",
+  "gemini/gemini-2.5-flash-lite",
+  "gemini/gemini-2.5-pro",
+  "openai/gpt-3.5-turbo",
+  "openai/gpt-3.5-turbo-0125",
+  "openai/gpt-3.5-turbo-16k",
+  "openai/gpt-4",
+  "openai/gpt-4-0613",
+  "openai/gpt-5-pro",
+  "openai/gpt-5-pro-2025-10-06",
+  "openai/gpt-5.2-pro",
+  "openai/gpt-5.2-pro-2025-12-11",
+  "openai/gpt-5.3-codex",
+  "openai/gpt-5.4-pro",
+  "openai/gpt-5.4-pro-2026-03-05",
+  "openai/gpt-5.5-pro",
+  "openai/gpt-5.5-pro-2026-04-23",
+  "openai/o1-pro",
+  "openai/o1-pro-2025-03-19",
+  "openai/o3-pro",
+  "openai/o3-pro-2025-06-10",
+])
 const OPENAI_AGENTIC_MODEL =
   /^openai\/(?:chat-latest|gpt-3\.5-turbo(?:$|-)|gpt-4(?:$|-|\.)|gpt-4o(?:$|-)|gpt-5(?:$|-|\.)|gpt-6(?:$|-|\.)|o1(?:$|-)|o3(?:$|-)|o4(?:$|-))/
 const FIREWORKS_AGENTIC_MODEL =
@@ -10,6 +33,7 @@ export function isAgenticModel(model) {
   if (!model || typeof model.id !== "string" || model.is_deprecated === true) return false
 
   const id = model.id
+  if (KNOWN_INCOMPATIBLE_MODELS.has(id)) return false
   if (EXCLUDED_CAPABILITIES.test(id)) return false
   if (id.startsWith("anthropic/")) return true
   if (/^dev\.meta\.ai\/muse-spark-/i.test(id)) return true
