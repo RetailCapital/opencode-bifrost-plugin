@@ -4,11 +4,15 @@ import {
   discoverBifrostModels,
 } from "./discovery.js"
 
+import { createVpnRefreshTool, defaultRun } from "./vpn.js"
+
 const SERVICE = "bifrost-opencode-plugin"
 
 export function createBifrostPlugin({
   discover = discoverBifrostModels,
   env = process.env,
+  run = defaultRun,
+  fetchImpl = fetch,
 } = {}) {
   return async function bifrostPlugin({ client }, options = {}) {
     let warned = false
@@ -27,7 +31,7 @@ export function createBifrostPlugin({
       await log("warn", message)
     }
 
-    return {
+    const hooks = {
       config: async (config) => {
         const baseUrl = env.BIFROST_URL?.trim()
         const apiKey = env.BIFROST_API_KEY?.trim()
@@ -72,6 +76,15 @@ export function createBifrostPlugin({
         }
       },
     }
+
+    const refreshToolId = stringOption(options.refreshToolId, "bifrost_vpn_refresh")
+    if (options.injectRefreshTool !== false && env.BIFROST_URL?.trim()) {
+      hooks.tool = {
+        [refreshToolId]: createVpnRefreshTool({ env, run, fetchImpl, log }),
+      }
+    }
+
+    return hooks
   }
 }
 

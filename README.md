@@ -11,6 +11,9 @@ At OpenCode startup, the plugin:
   each model's context limits and per-token pricing so OpenCode can show the
   cost of each request and of the session (see [Cost tracking](#cost-tracking));
 - injects the Memento MCP server at `/mcp`;
+- registers a `bifrost_vpn_refresh` tool that bounces the Fortinet SSL-VPN
+  when the gateway is black-holed mid-session (see
+  [VPN refresh tool](#vpn-refresh-tool));
 - preserves explicit provider, model, MCP, and `enabled: false` overrides; and
 - logs one warning and leaves the existing configuration unchanged when setup fails.
 
@@ -107,7 +110,7 @@ Then add the package to `opencode.json`:
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@retailcapital/bifrost-opencode-plugin@0.1.1"]
+  "plugin": ["@retailcapital/bifrost-opencode-plugin@0.2.0"]
 }
 ```
 
@@ -199,6 +202,37 @@ Limits:
 - The nested `cache: { read, write }` form is silently ignored by OpenCode 1.19.
   Use the flat `cache_read` and `cache_write` keys when overriding.
 
+## VPN refresh tool
+
+The plugin registers a `bifrost_vpn_refresh` custom tool for the failure mode
+where the gateway becomes unreachable mid-session: requests to `bifrost`
+models hang for roughly two minutes and then fail with `Cannot connect to
+API` (silently dropped SYNs over a dead Fortinet SSL-VPN tunnel, while the
+local `ppp` interface still looks UP).
+
+Ask the agent to call it, or just say Bifrost or the VPN is down. The tool:
+
+1. probes `GET /health` twice — a single blip triggers nothing;
+2. checks that the route to the gateway crosses a `ppp` device (the VPN);
+3. identifies the running NetworkManager `fortisslvpn` connection by matching
+   the openfortivpn process's profile UUID, so it only ever touches a
+   connection NetworkManager itself owns; and
+4. bounces it with `nmcli connection down/up` and polls health for up to
+   45 seconds, reporting whether the gateway recovered.
+
+It never refreshes when the gateway is healthy, when the route to the gateway
+does not cross the VPN, or when openfortivpn is not NetworkManager-managed.
+Pass `force=true` to refresh even when the health check currently passes.
+
+Bouncing the VPN briefly interrupts everything routed through it — including
+the current session's model requests — for roughly 10 to 30 seconds. If the
+reconnect needs credentials that are not stored, the refresh reports the
+failure instead of hanging.
+
+The tool needs `BIFROST_URL` set (the health probe is unauthenticated, so the
+virtual key is never used). Disable it with `"injectRefreshTool": false` or
+rename it with `"refreshToolId"`.
+
 ## Options
 
 OpenCode supports package options using tuple syntax:
@@ -207,12 +241,14 @@ OpenCode supports package options using tuple syntax:
 {
   "plugin": [
     [
-      "@retailcapital/bifrost-opencode-plugin@0.1.1",
+      "@retailcapital/bifrost-opencode-plugin@0.2.0",
       {
         "timeoutMs": 10000,
         "providerId": "bifrost",
         "mementoServerName": "memento_memory",
-        "injectMemento": true
+        "injectMemento": true,
+        "injectRefreshTool": true,
+        "refreshToolId": "bifrost_vpn_refresh"
       }
     ]
   ]
