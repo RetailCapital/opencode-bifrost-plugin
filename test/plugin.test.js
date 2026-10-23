@@ -53,8 +53,9 @@ test("registers the bundled skills directory only when setup runs", async () => 
   const config = {}
   await (await withEnv({ client: clientWithLogs([]) })).config(config)
 
-  assert.equal(config.skills.length, 1)
-  const skill = await readFile(join(config.skills[0], "bifrost-usage", "SKILL.md"), "utf8")
+  // Object form: the only shape OpenCode <= 1.19 accepts.
+  assert.equal(config.skills.paths.length, 1)
+  const skill = await readFile(join(config.skills.paths[0], "bifrost-usage", "SKILL.md"), "utf8")
   assert.match(skill, /^name: bifrost-usage$/m)
 
   const withoutEnv = createBifrostPlugin({ env: {}, discover: async () => ({}) })
@@ -63,12 +64,14 @@ test("registers the bundled skills directory only when setup runs", async () => 
   assert.equal(skipped.skills, undefined)
 })
 
-test("appends to an existing skills list and to the deprecated object form", async () => {
+test("appends to existing skills config in either supported form", async () => {
   const plugin = createBifrostPlugin({
     env: { BIFROST_URL: "http://bifrost.internal", BIFROST_API_KEY: "test-key" },
     discover: async () => ({}),
   })
 
+  // Array form is only extended when already present (i.e. the running
+  // OpenCode accepted it); the plugin never introduces it.
   const listForm = { skills: ["/some/other/skills"] }
   await (await plugin({ client: clientWithLogs([]) })).config(listForm)
   assert.equal(listForm.skills.length, 2)
@@ -76,6 +79,11 @@ test("appends to an existing skills list and to the deprecated object form", asy
   const objectForm = { skills: { paths: ["/some/other/skills"] } }
   await (await plugin({ client: clientWithLogs([]) })).config(objectForm)
   assert.equal(objectForm.skills.paths.length, 2)
+
+  const urlsOnly = { skills: { urls: ["https://example.com/skills/"] } }
+  await (await plugin({ client: clientWithLogs([]) })).config(urlsOnly)
+  assert.equal(urlsOnly.skills.paths.length, 1)
+  assert.equal(urlsOnly.skills.urls.length, 1)
 })
 
 test("preserves explicit model, provider, and disabled MCP settings", async () => {
