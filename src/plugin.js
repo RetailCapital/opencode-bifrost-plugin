@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url"
+
 import {
   bifrostApiUrl,
   bifrostMcpUrl,
@@ -5,6 +7,9 @@ import {
 } from "./discovery.js"
 
 const SERVICE = "bifrost-opencode-plugin"
+// Ships with this package; registered via the `skills` config key so only
+// sessions running this plugin discover it.
+const SKILLS_DIR = fileURLToPath(new URL("../skills", import.meta.url))
 
 export function createBifrostPlugin({
   discover = discoverBifrostModels,
@@ -61,6 +66,19 @@ export function createBifrostPlugin({
               apiKey,
               config.mcp[mementoServerName],
             )
+          }
+
+          // OpenCode <= 1.19 validates `skills` as an object ({ paths, urls })
+          // and rejects the newer array form outright, so the object form is
+          // the safe default; newer versions still accept it (deprecated).
+          // An array is only extended when it is already present, which means
+          // the running version accepted it from the user's own config.
+          if (Array.isArray(config.skills)) {
+            if (!config.skills.includes(SKILLS_DIR)) config.skills.push(SKILLS_DIR)
+          } else {
+            config.skills ??= {}
+            config.skills.paths ??= []
+            if (!config.skills.paths.includes(SKILLS_DIR)) config.skills.paths.push(SKILLS_DIR)
           }
 
           await log(

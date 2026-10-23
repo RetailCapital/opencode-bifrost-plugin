@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
+import { join } from "node:path"
 import test from "node:test"
 
 import { createBifrostPlugin, mergeMemento, mergeProvider } from "../src/plugin.js"
@@ -41,6 +43,47 @@ test("injects provider and Memento configuration after successful discovery", as
     headers: { "x-bf-vk": "test-key" },
   })
   assert.equal(logs.at(-1).level, "info")
+})
+
+test("registers the bundled skills directory only when setup runs", async () => {
+  const withEnv = createBifrostPlugin({
+    env: { BIFROST_URL: "http://bifrost.internal", BIFROST_API_KEY: "test-key" },
+    discover: async () => ({}),
+  })
+  const config = {}
+  await (await withEnv({ client: clientWithLogs([]) })).config(config)
+
+  // Object form: the only shape OpenCode <= 1.19 accepts.
+  assert.equal(config.skills.paths.length, 1)
+  const skill = await readFile(join(config.skills.paths[0], "bifrost-usage", "SKILL.md"), "utf8")
+  assert.match(skill, /^name: bifrost-usage$/m)
+
+  const withoutEnv = createBifrostPlugin({ env: {}, discover: async () => ({}) })
+  const skipped = {}
+  await (await withoutEnv({ client: clientWithLogs([]) })).config(skipped)
+  assert.equal(skipped.skills, undefined)
+})
+
+test("appends to existing skills config in either supported form", async () => {
+  const plugin = createBifrostPlugin({
+    env: { BIFROST_URL: "http://bifrost.internal", BIFROST_API_KEY: "test-key" },
+    discover: async () => ({}),
+  })
+
+  // Array form is only extended when already present (i.e. the running
+  // OpenCode accepted it); the plugin never introduces it.
+  const listForm = { skills: ["/some/other/skills"] }
+  await (await plugin({ client: clientWithLogs([]) })).config(listForm)
+  assert.equal(listForm.skills.length, 2)
+
+  const objectForm = { skills: { paths: ["/some/other/skills"] } }
+  await (await plugin({ client: clientWithLogs([]) })).config(objectForm)
+  assert.equal(objectForm.skills.paths.length, 2)
+
+  const urlsOnly = { skills: { urls: ["https://example.com/skills/"] } }
+  await (await plugin({ client: clientWithLogs([]) })).config(urlsOnly)
+  assert.equal(urlsOnly.skills.paths.length, 1)
+  assert.equal(urlsOnly.skills.urls.length, 1)
 })
 
 test("preserves explicit model, provider, and disabled MCP settings", async () => {
