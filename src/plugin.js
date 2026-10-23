@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url"
+
 import {
   bifrostApiUrl,
   bifrostMcpUrl,
@@ -5,6 +7,9 @@ import {
 } from "./discovery.js"
 
 const SERVICE = "bifrost-opencode-plugin"
+// Ships with this package; registered via the `skills` config key so only
+// sessions running this plugin discover it.
+const SKILLS_DIR = fileURLToPath(new URL("../skills", import.meta.url))
 
 export function createBifrostPlugin({
   discover = discoverBifrostModels,
@@ -61,6 +66,15 @@ export function createBifrostPlugin({
               apiKey,
               config.mcp[mementoServerName],
             )
+          }
+
+          if (Array.isArray(config.skills)) {
+            if (!config.skills.includes(SKILLS_DIR)) config.skills.push(SKILLS_DIR)
+          } else if (config.skills && Array.isArray(config.skills.paths)) {
+            // Deprecated object form ({ paths, urls }) still accepted by OpenCode.
+            if (!config.skills.paths.includes(SKILLS_DIR)) config.skills.paths.push(SKILLS_DIR)
+          } else {
+            config.skills = [SKILLS_DIR]
           }
 
           await log(

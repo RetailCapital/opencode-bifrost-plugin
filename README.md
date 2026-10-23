@@ -11,6 +11,8 @@ At OpenCode startup, the plugin:
   each model's context limits and per-token pricing so OpenCode can show the
   cost of each request and of the session (see [Cost tracking](#cost-tracking));
 - injects the Memento MCP server at `/mcp`;
+- registers the bundled `bifrost-usage` skill (query the gateway's request-log
+  and spend API) so only sessions running this plugin discover it;
 - preserves explicit provider, model, MCP, and `enabled: false` overrides; and
 - logs one warning and leaves the existing configuration unchanged when setup fails.
 

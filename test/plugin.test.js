@@ -1,4 +1,6 @@
 import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
+import { join } from "node:path"
 import test from "node:test"
 
 import { createBifrostPlugin, mergeMemento, mergeProvider } from "../src/plugin.js"
@@ -41,6 +43,39 @@ test("injects provider and Memento configuration after successful discovery", as
     headers: { "x-bf-vk": "test-key" },
   })
   assert.equal(logs.at(-1).level, "info")
+})
+
+test("registers the bundled skills directory only when setup runs", async () => {
+  const withEnv = createBifrostPlugin({
+    env: { BIFROST_URL: "http://bifrost.internal", BIFROST_API_KEY: "test-key" },
+    discover: async () => ({}),
+  })
+  const config = {}
+  await (await withEnv({ client: clientWithLogs([]) })).config(config)
+
+  assert.equal(config.skills.length, 1)
+  const skill = await readFile(join(config.skills[0], "bifrost-usage", "SKILL.md"), "utf8")
+  assert.match(skill, /^name: bifrost-usage$/m)
+
+  const withoutEnv = createBifrostPlugin({ env: {}, discover: async () => ({}) })
+  const skipped = {}
+  await (await withoutEnv({ client: clientWithLogs([]) })).config(skipped)
+  assert.equal(skipped.skills, undefined)
+})
+
+test("appends to an existing skills list and to the deprecated object form", async () => {
+  const plugin = createBifrostPlugin({
+    env: { BIFROST_URL: "http://bifrost.internal", BIFROST_API_KEY: "test-key" },
+    discover: async () => ({}),
+  })
+
+  const listForm = { skills: ["/some/other/skills"] }
+  await (await plugin({ client: clientWithLogs([]) })).config(listForm)
+  assert.equal(listForm.skills.length, 2)
+
+  const objectForm = { skills: { paths: ["/some/other/skills"] } }
+  await (await plugin({ client: clientWithLogs([]) })).config(objectForm)
+  assert.equal(objectForm.skills.paths.length, 2)
 })
 
 test("preserves explicit model, provider, and disabled MCP settings", async () => {
